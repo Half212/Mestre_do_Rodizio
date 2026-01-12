@@ -111,6 +111,17 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void removePlayer(String playerId) {
+    players.removeWhere((p) => p.id == playerId);
+
+    // Se removermos o vencedor, o jogo deve continuar ou resetar o estado de vitória
+    if (winnerId == playerId) {
+      winnerId = null;
+    }
+
+    notifyListeners();
+  }
+
   void incrementScore(String playerId) {
     if (winnerId != null) return;
 
@@ -328,124 +339,168 @@ class HomeScreen extends StatelessWidget {
                     if (progress >= 0.8) progressColor = Colors.deepOrange;
                     if (isWinner) progressColor = Colors.green;
 
-                    return Card(
-                      // Cores do Card são automáticas pelo Theme
-                      elevation: isWinner ? 8 : 2,
-                      shadowColor: isWinner ? Colors.green.withOpacity(0.4) : Colors.black12,
-                      shape: RoundedRectangleBorder(
+                    return Dismissible(
+                      key: Key(player.id),
+                      direction: DismissDirection.endToStart, // Arrastar da direita para esquerda
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        margin: const EdgeInsets.only(bottom: 15),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
                           borderRadius: BorderRadius.circular(20),
-                          side: isWinner ? const BorderSide(color: Colors.green, width: 3) : BorderSide.none
+                        ),
+                        child: const Icon(Icons.delete_forever, color: Colors.white, size: 32),
                       ),
-                      margin: const EdgeInsets.only(bottom: 15),
-                      child: Padding(
-                        padding: const EdgeInsets.all(15.0),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 30,
-                              backgroundColor: isWinner ? Colors.green : (isDark ? Colors.orange.shade900 : Colors.orange.shade50),
-                              child: Text(
-                                player.name.isNotEmpty ? player.name[0].toUpperCase() : "?",
-                                style: TextStyle(
-                                    color: isWinner ? Colors.white : Colors.deepOrange,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 24
-                                ),
+                      confirmDismiss: (direction) async {
+                        return await showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+                              title: const Text("Remover da mesa?", style: TextStyle(color: Colors.deepOrange)),
+                              content: Text(
+                                "${player.name} vai sair da disputa. Tem certeza?",
+                                style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
                               ),
-                            ),
-                            const SizedBox(width: 15),
-
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                          player.name,
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 18,
-                                              // Cor do texto adapta ao tema
-                                              color: isDark ? Colors.white : Colors.black87
-                                          )
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                            color: isWinner ? Colors.green.shade100 : (isDark ? Colors.grey[800] : Colors.orange.shade50),
-                                            borderRadius: BorderRadius.circular(12)
-                                        ),
-                                        child: Text(
-                                          _getBadge(player.score, controller.targetGoal),
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: isWinner ? Colors.green.shade800 : Colors.deepOrange
-                                          ),
-                                        ),
-                                      )
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: LinearProgressIndicator(
-                                      value: progress > 1 ? 1 : progress,
-                                      color: progressColor,
-                                      backgroundColor: isDark ? Colors.grey[700] : Colors.grey.shade200,
-                                      minHeight: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        "${player.score}",
-                                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: progressColor),
-                                      ),
-                                      Text(
-                                        " / ${controller.targetGoal}",
-                                        style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-                                      ),
-                                    ],
-                                  )
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(width: 15),
-                            Column(
-                              children: [
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(50),
-                                    onTap: controller.winnerId == null
-                                        ? () => controller.incrementScore(player.id)
-                                        : null,
-                                    child: Ink(
-                                      decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: controller.winnerId == null ? Colors.green : Colors.grey
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                      child: const Icon(Icons.add, color: Colors.white, size: 28),
-                                    ),
-                                  ),
+                              actions: <Widget>[
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
                                 ),
-                                if (player.score > 0 && controller.winnerId == null) ...[
-                                  const SizedBox(height: 10),
-                                  InkWell(
-                                    onTap: () => controller.decrementScore(player.id),
-                                    child: Icon(Icons.remove_circle_outline, size: 28, color: Colors.red.shade300),
-                                  ),
-                                ]
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  child: const Text("Remover", style: TextStyle(color: Colors.white)),
+                                ),
                               ],
-                            )
-                          ],
+                            );
+                          },
+                        );
+                      },
+                      onDismissed: (direction) {
+                        controller.removePlayer(player.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("${player.name} saiu da mesa"))
+                        );
+                      },
+                      child: Card(
+                        elevation: isWinner ? 8 : 2,
+                        shadowColor: isWinner ? Colors.green.withOpacity(0.4) : Colors.black12,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: isWinner ? const BorderSide(color: Colors.green, width: 3) : BorderSide.none
+                        ),
+                        margin: const EdgeInsets.only(bottom: 15),
+                        child: Padding(
+                          padding: const EdgeInsets.all(15.0),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 30,
+                                backgroundColor: isWinner ? Colors.green : (isDark ? Colors.orange.shade900 : Colors.orange.shade50),
+                                child: Text(
+                                  player.name.isNotEmpty ? player.name[0].toUpperCase() : "?",
+                                  style: TextStyle(
+                                      color: isWinner ? Colors.white : Colors.deepOrange,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 24
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 15),
+
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                            player.name,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 18,
+                                                color: isDark ? Colors.white : Colors.black87
+                                            )
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                              color: isWinner ? Colors.green.shade100 : (isDark ? Colors.grey[800] : Colors.orange.shade50),
+                                              borderRadius: BorderRadius.circular(12)
+                                          ),
+                                          child: Text(
+                                            _getBadge(player.score, controller.targetGoal),
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: isWinner ? Colors.green.shade800 : Colors.deepOrange
+                                            ),
+                                          ),
+                                        )
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: LinearProgressIndicator(
+                                        value: progress > 1 ? 1 : progress,
+                                        color: progressColor,
+                                        backgroundColor: isDark ? Colors.grey[700] : Colors.grey.shade200,
+                                        minHeight: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          "${player.score}",
+                                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: progressColor),
+                                        ),
+                                        Text(
+                                          " / ${controller.targetGoal}",
+                                          style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                                        ),
+                                      ],
+                                    )
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(width: 15),
+                              Column(
+                                children: [
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(50),
+                                      onTap: controller.winnerId == null
+                                          ? () => controller.incrementScore(player.id)
+                                          : null,
+                                      child: Ink(
+                                        decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: controller.winnerId == null ? Colors.green : Colors.grey
+                                        ),
+                                        padding: const EdgeInsets.all(8),
+                                        child: const Icon(Icons.add, color: Colors.white, size: 28),
+                                      ),
+                                    ),
+                                  ),
+                                  if (player.score > 0 && controller.winnerId == null) ...[
+                                    const SizedBox(height: 10),
+                                    InkWell(
+                                      onTap: () => controller.decrementScore(player.id),
+                                      child: Icon(Icons.remove_circle_outline, size: 28, color: Colors.red.shade300),
+                                    ),
+                                  ]
+                                ],
+                              )
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -455,11 +510,11 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
 
-          // --- CAMADA 2: A Animação de Vitória (Overlay) ---
+          // --- CAMADA 2: Animação de Vitória ---
           if (controller.winnerId != null)
             Positioned.fill(
               child: Container(
-                color: Colors.black.withOpacity(0.85), // Fundo mais escuro para destaque
+                color: Colors.black.withOpacity(0.85),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
